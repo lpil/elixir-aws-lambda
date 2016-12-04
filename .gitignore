@@ -1,0 +1,4 @@
+build
+*.zip
+**/deps
+**/_build

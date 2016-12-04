@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "build": "MIX_ENV=prod mix escript.build",
+    "clean": "rm -f main"
+  }
+}

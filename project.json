@@ -1,0 +1,8 @@
+{
+  "name": "elixir-lambda-2",
+  "description": "",
+  "memory": 128,
+  "timeout": 5,
+  "role": "arn:aws:iam::578418881509:role/elixir-lambda-2_lambda_function",
+  "environment": {}
+}
