@@ -29,10 +29,12 @@ const server = net.createServer((c) => {
   console.log('Worker proc connected');
 
   sendToProc = () => {
-    console.log('Sending payload to worker proc');
-    c.write(queuedPayload);
+    const payload = queuedPayload;
+    queuedPayload = null;
+    c.write(payload);
+    console.log('Sent payload to worker proc');
   }
-  sendToProc();
+  if (queuedPayload) { sendToProc(); }
 
   c.on('end', () => {
     console.error('Worker proc disconnected');
