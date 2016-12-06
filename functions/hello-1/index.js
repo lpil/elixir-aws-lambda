@@ -1,50 +1,65 @@
+const child = require('child_process');
+const net = require('net');
 
-var child = require('child_process')
-var byline = require('./byline')
+const socket_path = '/tmp/elixir-aws-socket';
 
-/**
- * Context for the request.
- */
+let queued_context;
+let queued_payload;
+let send_to_proc;
 
-var ctx
 
-/**
- * Child process for binary I/O.
- */
+// Child Elixir process.
 
-var proc = child.spawn('./main', { stdio: ['pipe', 'pipe', process.stderr] })
+const proc = child.spawn('./main');
 
-proc.on('error', function(err){
-  console.error('error: %s', err)
-  process.exit(1)
-})
+proc.on('error', (err) => {
+  console.error('Worker proc error: %s', err);
+  process.exit(1);
+});
 
-proc.on('exit', function(code){
-  console.error('exit: %s', code)
-  process.exit(1)
-})
+proc.on('exit', (code) => {
+  console.error('Worker proc exit: %s', code);
+  process.exit(1);
+});
 
-/**
- * Newline-delimited JSON stdout.
- */
 
-var out = byline(proc.stdout)
+// TCP communication with proc
 
-out.on('data', function(line){
-  if (process.env.DEBUG_SHIM) console.log('[shim] parsing: %j', line)
-  var msg = JSON.parse(line)
-  ctx.done(msg.error, msg.value)
-})
+const server = net.createServer((c) => {
+  console.log('Worker proc connected');
 
-/**
- * Handle events.
- */
+  send_to_proc = () => {
+    console.log('Sending payload to worker proc');
+    c.write(queued_payload);
+  }
+  send_to_proc();
 
-exports.handle = function(event, context) {
-  ctx = context
+  c.on('end', () => {
+    console.error('Worker proc disconnected');
+    process.exit(1);
+  });
 
-  proc.stdin.write(JSON.stringify({
-    "event": event,
-    "context": context
-  })+'\n');
+  c.on('data', data => {
+    console.log('Response recieved from worker proc');
+    const resp = JSON.parse(data.toString('utf8'));
+    queued_context.done(resp.error, resp.value)
+  });
+});
+
+server.on('error', (err) => {
+  throw err;
+});
+
+server.listen(socket_path, () => {
+  console.log(`Shim TCP server listening at ${socket_path}`);
+});
+
+
+// Handle lambda, calling proc if ready.
+
+exports.handle = function handle(event, context) {
+  queued_context = context;
+  queued_payload = JSON.stringify({ event, context });
+
+  if (send_to_proc) { send_to_proc(); }
 }
